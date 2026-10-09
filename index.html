@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SignalForge AI</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<style>
+:root{--bg:#0b1020;--card:#151f35;--line:#2a3b5d;--text:#edf4ff;--muted:#94a4bf;--a:#71e0c3;--b:#7aa7ff;--bad:#ff7f91;--good:#76e3a1}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 10% 0,#17284c 0,transparent 28%),var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}
+header{display:flex;justify-content:space-between;padding:18px max(20px,calc((100vw - 1120px)/2));border-bottom:1px solid var(--line);background:#0b1020dd;position:sticky;top:0;z-index:5}
+.brand{font-weight:850;font-size:20px}.brand span{color:var(--a)}.tag{color:var(--a);font-size:12px;border:1px solid #315b5a;border-radius:999px;padding:6px 10px}
+main{max-width:1120px;margin:auto;padding:36px 20px 70px}.hero,.grid2{display:grid;grid-template-columns:1.35fr .65fr;gap:18px}.card{background:#151f35ee;border:1px solid var(--line);border-radius:18px;padding:22px;box-shadow:0 18px 50px #0004}
+h1{font-size:clamp(38px,6vw,66px);letter-spacing:-.055em;line-height:.98;margin:10px 0 16px}.eyebrow{color:var(--a);font-size:11px;letter-spacing:.13em;text-transform:uppercase;font-weight:800}.muted{color:var(--muted);line-height:1.6}
+.flow{display:grid;gap:8px;margin-top:14px}.flow div{background:#0f182a;border:1px solid var(--line);padding:9px 11px;border-radius:11px;font-size:13px}
+.controls{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:end;margin:18px 0}label{display:block;color:var(--muted);font-size:12px;font-weight:700;margin-bottom:6px}
+input,select,button{font:inherit}input,select{width:100%;padding:12px;border-radius:11px;border:1px solid var(--line);background:#0e1728;color:var(--text)}select{min-width:170px}
+button{border:0;border-radius:11px;padding:12px 15px;font-weight:800;cursor:pointer}.primary{background:linear-gradient(135deg,var(--a),#55b7ff);color:#071019}.secondary{background:#1b2943;color:var(--text);border:1px solid #3a5077}
+.status{margin-bottom:18px;padding:12px 15px;background:#0f182a;border:1px solid var(--line);border-radius:11px;color:var(--muted)}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}.metric .k{font-size:11px;color:var(--muted);text-transform:uppercase}.metric .v{font-size:27px;font-weight:850;margin:8px 0}.metric .s{font-size:12px;color:var(--muted)}
+.good{color:var(--good)}.bad{color:var(--bad)}.grid2{grid-template-columns:1fr 1fr;margin-bottom:18px}.chart{height:290px}.insight,.rec{background:#0f182a;border:1px solid var(--line);padding:13px;border-radius:12px;margin-bottom:9px}.insight strong,.rec strong{display:block;margin-bottom:5px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:10px;border-bottom:1px solid var(--line)}th{color:var(--muted);font-size:11px;text-transform:uppercase}
+.pills span{display:inline-block;margin:4px 6px 0 0;padding:5px 8px;border-radius:999px;background:#102b2b;color:var(--a);font-size:11px}
+footer{text-align:center;color:#64738f;font-size:12px;margin-top:24px}
+@media(max-width:850px){.hero,.grid2{grid-template-columns:1fr}.grid4{grid-template-columns:1fr 1fr}.controls{grid-template-columns:1fr}}@media(max-width:520px){.grid4{grid-template-columns:1fr}header{flex-direction:column;gap:9px}}
+</style>
+</head>
+<body>
+<header><div class="brand">SignalForge <span>AI</span></div><div class="tag">ForgeHacks 2026 · AI + Business</div></header>
+<main>
+<section class="hero">
+<div class="card"><div class="eyebrow">Decision intelligence for small teams</div><h1>Turn messy business data into decisions.</h1><p class="muted">Upload a CSV. SignalForge AI finds trends, anomalies and business drivers, trains a local neural forecast, and turns the result into an action plan. Your raw data stays in the browser.</p><div style="display:flex;gap:10px;flex-wrap:wrap"><button id="demo" class="primary">Load demo dataset</button><button id="dl" class="secondary">Download sample CSV</button></div></div>
+<div class="card"><div class="eyebrow">AI pipeline</div><div class="flow"><div>1 · Parse business metrics</div><div>2 · Detect anomalies</div><div>3 · Find correlated drivers</div><div>4 · Train neural forecast locally</div><div>5 · Generate recommendations</div></div></div>
+</section>
+
+<section class="card controls">
+<div><label>Upload CSV</label><input id="file" type="file" accept=".csv,text/csv"></div>
+<div><label>Target metric</label><select id="target"></select></div>
+<button id="run" class="primary">Run AI analysis</button>
+</section>
+<div id="status" class="status">Demo data is loaded. Choose a target metric and run the AI analysis.</div>
+
+<section class="grid4">
+<div class="card metric"><div class="k">Latest</div><div id="latest" class="v">—</div><div id="latestName" class="s">Target metric</div></div>
+<div class="card metric"><div class="k">Trend</div><div id="trend" class="v">—</div><div class="s">Average direction</div></div>
+<div class="card metric"><div class="k">AI forecast</div><div id="forecast" class="v">—</div><div class="s">Next period</div></div>
+<div class="card metric"><div class="k">Anomalies</div><div id="anom" class="v">—</div><div class="s">Points above 2σ</div></div>
+</section>
+
+<section class="grid2">
+<div class="card"><h2>Actual vs AI forecast</h2><div class="chart"><canvas id="chart"></canvas></div><p id="model" class="muted" style="font-size:12px">TensorFlow.js model has not been trained yet.</p></div>
+<div class="card"><h2>Executive brief</h2><div id="brief"><div class="insight"><strong>Waiting for analysis</strong><span class="muted">Run the model to generate a decision summary.</span></div></div></div>
+</section>
+
+<section class="grid2">
+<div class="card"><h2>Top business drivers</h2><table><thead><tr><th>Metric</th><th>Corr.</th><th>Signal</th></tr></thead><tbody id="drivers"><tr><td colspan="3" class="muted">No analysis yet.</td></tr></tbody></table></div>
+<div class="card"><h2>Recommended actions</h2><div id="recs"><div class="rec"><strong>Run the model</strong><span class="muted">Recommendations will be generated from the forecast, anomalies and drivers.</span></div></div></div>
+</section>
+
+<section class="card"><h2>Why this is AI, not a dashboard</h2><p class="muted">The product trains a neural time-series model in the browser with TensorFlow.js, combines the prediction with anomaly detection and driver analysis, and converts those signals into decision recommendations.</p><div class="pills"><span>Neural forecasting</span><span>Anomaly detection</span><span>Driver analysis</span><span>Decision recommendations</span><span>Local-first privacy</span></div></section>
+<footer>SignalForge AI · Built during ForgeHacks 2026</footer>
+</main>
+<script>
+const sample=`Month,Revenue,Leads,ConversionRate,MarketingSpend,CAC,Churn
+2025-01,82000,1180,4.2,19000,38,3.7
+2025-02,84500,1210,4.3,19500,37,3.6
+2025-03,87100,1250,4.4,20100,36,3.5
+2025-04,89500,1280,4.5,20500,36,3.4
+2025-05,91800,1320,4.6,21200,35,3.4
+2025-06,94200,1350,4.7,21800,34,3.3
+2025-07,97500,1410,4.8,22500,34,3.2
+2025-08,100200,1450,4.9,23200,33,3.1
+2025-09,103800,1490,5.0,23800,32,3.0
+2025-10,106400,1525,5.0,24200,32,3.0
+2025-11,110500,1580,5.1,25100,31,2.9
+2025-12,115200,1650,5.3,26300,31,2.8
+2026-01,117900,1680,5.4,27000,30,2.8
+2026-02,121100,1720,5.5,27600,30,2.7
+2026-03,123400,1750,5.5,28000,30,2.7
+2026-04,126700,1780,5.6,28600,29,2.6
+2026-05,129900,1810,5.7,29100,29,2.6
+2026-06,132100,1840,5.7,29500,29,2.5
+2026-07,134500,1870,5.8,30000,28,2.5
+2026-08,137900,1920,5.9,30800,28,2.4
+2026-09,119000,1710,5.0,31500,36,3.2
+2026-10,142800,1980,6.0,31600,27,2.4`;
+let rows=[],headers=[],nums=[],chartObj=null;
+const $=id=>document.getElementById(id),mean=a=>a.reduce((s,x)=>s+x,0)/a.length;
+function sd(a){let m=mean(a);return Math.sqrt(a.reduce((s,x)=>s+(x-m)**2,0)/a.length)||1}
+function parse(t){let ls=t.trim().split(/\r?\n/).filter(Boolean);let h=ls[0].split(',').map(x=>x.trim());return {h,d:ls.slice(1).map(l=>{let v=l.split(','),o={};h.forEach((k,i)=>o[k]=(v[i]||'').trim());return o})}}
+function load(t){let p=parse(t);headers=p.h;rows=p.d;nums=headers.filter(h=>rows.every(r=>r[h]!==''&&Number.isFinite(+r[h])));$('target').innerHTML=nums.map(h=>`<option>${h}</option>`).join('');if(nums.includes('Revenue'))$('target').value='Revenue';$('status').textContent=`Loaded ${rows.length} rows and ${nums.length} numeric metrics.`}
+function corr(a,b){let ma=mean(a),mb=mean(b),n=0,da=0,db=0;a.forEach((x,i)=>{let u=x-ma,v=b[i]-mb;n+=u*v;da+=u*u;db+=v*v});return n/Math.sqrt((da||1)*(db||1))}
+function slope(a){let xm=(a.length-1)/2,ym=mean(a),n=0,d=0;a.forEach((y,i)=>{n+=(i-xm)*(y-ym);d+=(i-xm)**2});return n/(d||1)}
+function fmt(v){let a=Math.abs(v);return a>=1e6?(v/1e6).toFixed(2)+'M':a>=1e3?(v/1e3).toFixed(1)+'K':a>=100?v.toFixed(0):v.toFixed(2)}
+async function nn(vals){
+ let mn=Math.min(...vals),mx=Math.max(...vals),rg=mx-mn||1,n=vals.map(v=>(v-mn)/rg),w=4,x=[],y=[];
+ for(let i=0;i<n.length-w;i++){x.push(n.slice(i,i+w));y.push(n[i+w])}
+ if(x.length<5)throw Error('Need at least 9 data rows.');
+ let X=tf.tensor2d(x),Y=tf.tensor2d(y,[y.length,1]),m=tf.sequential();
+ m.add(tf.layers.dense({units:14,activation:'relu',inputShape:[w]}));m.add(tf.layers.dense({units:7,activation:'relu'}));m.add(tf.layers.dense({units:1}));
+ m.compile({optimizer:tf.train.adam(.025),loss:'meanSquaredError'});let hist=await m.fit(X,Y,{epochs:80,batchSize:Math.min(8,x.length),verbose:0});
+ let seq=n.slice(-w),out=[];for(let j=0;j<3;j++){let T=tf.tensor2d([seq]),P=m.predict(T),q=(await P.data())[0];q=Math.max(-.2,Math.min(1.2,q));out.push(q*rg+mn);seq=[...seq.slice(1),q];T.dispose();P.dispose()}
+ let loss=hist.history.loss.at(-1);X.dispose();Y.dispose();m.dispose();return {out,loss}
+}
+function draw(labels,a,p){if(chartObj)chartObj.destroy();chartObj=new Chart($('chart'),{type:'line',data:{labels:[...labels,...p.map((_,i)=>'Forecast +'+(i+1))],datasets:[{label:'Actual',data:[...a,...p.map(()=>null)],borderWidth:2,tension:.25},{label:'AI forecast',data:[...a.map(()=>null).slice(0,-1),a.at(-1),...p],borderWidth:2,borderDash:[6,5],tension:.25}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#b9c7df'}}},scales:{x:{ticks:{color:'#8494ae'},grid:{color:'#24324b55'}},y:{ticks:{color:'#8494ae'},grid:{color:'#24324b55'}}}}})}
+async function run(){
+ let t=$('target').value,v=rows.map(r=>+r[t]);$('run').disabled=true;$('status').textContent='Training local neural model…';
+ try{
+  let latest=v.at(-1),tr=slope(v)/Math.abs(mean(v))*100,an=v.map((x,i)=>({i,z:Math.abs((x-mean(v))/sd(v))})).filter(x=>x.z>2);
+  let drivers=nums.filter(h=>h!==t).map(h=>({h,c:corr(v,rows.map(r=>+r[h]))})).sort((a,b)=>Math.abs(b.c)-Math.abs(a.c));
+  let {out,loss}=await nn(v),next=out[0],delta=(next-latest)/Math.abs(latest)*100,label=headers.find(h=>!nums.includes(h))||'Period';
+  $('latest').textContent=fmt(latest);$('latestName').textContent=t;$('trend').textContent=(tr>=0?'+':'')+tr.toFixed(2)+'%';$('trend').className='v '+(tr>=0?'good':'bad');
+  $('forecast').textContent=fmt(next);$('forecast').className='v '+(delta>=0?'good':'bad');$('anom').textContent=an.length;draw(rows.map(r=>r[label]),v,out);
+  $('model').textContent=`TensorFlow.js neural forecast · training loss ${loss.toFixed(4)} · processed locally in the browser.`;
+  let top=drivers[0];$('brief').innerHTML=`<div class="insight"><strong>${t} is ${tr>=0?'trending upward':'trending downward'}</strong><span class="muted">Average linear change: ${tr.toFixed(2)}% per period.</span></div><div class="insight"><strong>Neural forecast: ${delta>=0?'+':''}${delta.toFixed(1)}%</strong><span class="muted">Next-period prediction: ${fmt(next)} vs ${fmt(latest)} latest.</span></div><div class="insight"><strong>${an.length} anomaly${an.length===1?'':'ies'} detected</strong><span class="muted">Use anomalous periods as investigation points before making long-range decisions.</span></div>${top?`<div class="insight"><strong>Top driver candidate: ${top.h}</strong><span class="muted">Correlation with ${t}: ${top.c.toFixed(2)}. Correlation is a signal, not proof of causation.</span></div>`:''}`;
+  $('drivers').innerHTML=drivers.slice(0,5).map(d=>`<tr><td>${d.h}</td><td>${d.c.toFixed(2)}</td><td>${Math.abs(d.c)>.7?'Strong':Math.abs(d.c)>.4?'Moderate':'Weak'} ${d.c>=0?'positive':'negative'}</td></tr>`).join('');
+  let rec=[];rec.push(delta>2?['Prepare for growth',`The model expects ${t} to rise ${delta.toFixed(1)}%. Check whether staffing, capacity or budget can support the projected change.`]:delta<-2?['Protect the downside',`The model expects ${t} to decline ${Math.abs(delta).toFixed(1)}%. Review the strongest drivers before committing new spend.`]:['Hold and validate',`${t} is forecast to remain relatively stable. Use the next period to validate assumptions and data quality.`]);
+  if(top&&Math.abs(top.c)>.65)rec.push([`Investigate ${top.h}`,`${top.h} has a ${Math.abs(top.c).toFixed(2)} correlation with ${t}. Test whether it is a controllable driver.`]);if(an.length)rec.push(['Audit anomalous periods',`Review ${an.length} unusual observations for campaign effects, seasonality, one-off deals, data errors or operational incidents.`]);rec.push(['Create a feedback loop',`Compare the next actual ${t} value with the forecast and record the decision taken. Use that outcome to improve the next analysis.`]);
+  $('recs').innerHTML=rec.map(x=>`<div class="rec"><strong>${x[0]}</strong><span class="muted">${x[1]}</span></div>`).join('');$('status').textContent=`Analysis complete for ${t}.`;
+ }catch(e){$('status').textContent='Analysis error: '+e.message}
+ $('run').disabled=false;
+}
+$('demo').onclick=()=>load(sample);$('run').onclick=run;$('file').onchange=e=>{let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>load(r.result);r.readAsText(f)};
+$('dl').onclick=()=>{let b=new Blob([sample],{type:'text/csv'}),u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='signalforge_sample.csv';a.click();URL.revokeObjectURL(u)};
+load(sample);
+</script>
+</body></html>
